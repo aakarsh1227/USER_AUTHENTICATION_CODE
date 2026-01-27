@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Onboarding System</title>
+    <style>
+        body { font-family: sans-serif; padding: 40px; background-color: #f5f5f5; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; shadow: 0px 4px 10px rgba(0,0,0,0.1); }
+        .box { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        input { display: block; width: 90%; margin: 10px 0; padding: 10px; }
+        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+        #statusMessage { font-weight: bold; margin-bottom: 15px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>User Onboarding API</h2>
+    
+    <div id="statusMessage"></div>
+
+    <div id="registerSection" class="box">
+        <h3>Step 1: Registration</h3>
+        <input type="text" id="regUser" placeholder="Username">
+        <input type="email" id="regEmail" placeholder="Email">
+        <input type="password" id="regPass" placeholder="Password">
+        <button onclick="register()">Register</button>
+    </div>
+
+    <div id="loginSection" class="box">
+        <h3>Step 2: Login</h3>
+        <input type="text" id="logUser" placeholder="Username">
+        <input type="password" id="logPass" placeholder="Password">
+        <button onclick="login()">Login</button>
+    </div>
+
+    <div id="forgetSection" class="box">
+        <h3>Forgot Password?</h3>
+        <input type="email" id="fEmail" placeholder="Enter Registered Email">
+        <button onclick="handleForgetPassword()">Get Reset Token</button>
+        
+        <div id="recoveryConfirmForm" style="display:none; margin-top: 15px; background: #fff3cd; padding: 10px;">
+            <input type="text" id="fUid" placeholder="UID (Auto-filled)" readonly>
+            <input type="text" id="fToken" placeholder="Token (Auto-filled)" readonly>
+            <input type="password" id="fNewPass" placeholder="Enter New Password">
+            <button onclick="handleResetConfirm()" style="background: #856404;">Recover Account</button>
+        </div>
+    </div>
+
+    <div id="dashboardSection" class="box" style="display:none;">
+        <h3>Dashboard</h3>
+        <p>You are now logged in securely with a JWT Token.</p>
+        <hr>
+        <h4>Update Password (Authenticated)</h4>
+        <input type="password" id="uNewPass" placeholder="Enter New Password">
+        <button onclick="updatePassword()">Update Now</button>
+        <br><br>
+        <button onclick="logout()" style="background: #dc3545;">Logout</button>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://127.0.0.1:8000/accounts/";
+
+    // Helper to display messages
+    function displayMsg(text, color) {
+        const el = document.getElementById('statusMessage');
+        el.innerText = text;
+        el.style.color = color;
+    }
+
+    async function register() {
+        const data = {
+            username: document.getElementById('regUser').value,
+            email: document.getElementById('regEmail').value,
+            password: document.getElementById('regPass').value
+        };
+        try {
+            const response = await fetch(API_URL + "register/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (response.status === 201) {
+                displayMsg("Registration Successful! Please Login.", "green");
+            } else {
+                displayMsg("Error: " + JSON.stringify(result), "red");
+            }
+        } catch (err) { displayMsg("Backend Server is Offline", "red"); }
+    }
+
+    async function login() {
+        const userVal = document.getElementById('logUser').value;
+        const passVal = document.getElementById('logPass').value;
+
+        try {
+            const response = await fetch(API_URL + "login/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: userVal, password: passVal })
+            });
+
+            const result = await response.json();
+
+            if (response.status === 200) {
+                localStorage.setItem("access", result.access);
+                localStorage.setItem("refresh", result.refresh);
+
+                document.getElementById('loginSection').style.display = "none";
+                document.getElementById('registerSection').style.display = "none";
+                document.getElementById('forgetSection').style.display = "none";
+                document.getElementById('dashboardSection').style.display = "block";
+                
+                displayMsg("Welcome back, " + userVal + "!", "green");
+            } else {
+                displayMsg("Login Failed: Check credentials", "red");
+            }
+        } catch (err) { displayMsg("Login Error: Connection Refused", "red"); }
+    }
+
+    async function handleForgetPassword() {
+        const email = document.getElementById('fEmail').value;
+        const response = await fetch(API_URL + "forget-password/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            document.getElementById('recoveryConfirmForm').style.display = "block";
+            document.getElementById('fUid').value = result.uid;
+            document.getElementById('fToken').value = result.token;
+            displayMsg("Token Generated! Enter your new password.", "blue");
+        } else {
+            displayMsg(result.error || "Email not found", "red");
+        }
+    }
+
+    async function handleResetConfirm() {
+        const data = {
+            uid: document.getElementById('fUid').value,
+            token: document.getElementById('fToken').value,
+            new_password: document.getElementById('fNewPass').value
+        };
+        const response = await fetch(API_URL + "reset-confirm/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+        if (response.ok) {
+            alert("Account Recovered! You can now login.");
+            location.reload();
+        } else {
+            alert("Reset Failed: Check token/uid");
+        }
+    }
+
+    async function updatePassword() {
+        const token = localStorage.getItem("access");
+        const newPass = document.getElementById('uNewPass').value;
+        const response = await fetch(API_URL + "update-password/", {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ new_password: newPass })
+        });
+        if (response.ok) {
+            displayMsg("Password Updated Successfully!", "green");
+        } else {
+            displayMsg("Session expired. Please login again.", "red");
+        }
+    }
+
+    function logout() {
+        localStorage.clear();
+        location.reload();
+    }
+</script>
+</body>
+</html>
