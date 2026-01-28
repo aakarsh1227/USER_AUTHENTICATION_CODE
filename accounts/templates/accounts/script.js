@@ -1,4 +1,4 @@
-const API = "http://127.0.0.1:8000/accounts/";
+const API = "http://127.0.0.1:8000/accounts/";  
 const msgBox = document.getElementById('msg');
 
 // Helper to show messages

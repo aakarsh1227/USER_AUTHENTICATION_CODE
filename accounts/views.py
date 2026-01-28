@@ -15,16 +15,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import RegisterSerializer, UserSerializer
 
-# --- PAGE RENDERING ---
-def login_page(request):
-    """Renders the login.html template"""
-    return render(request, 'login.html')
-
 def home_view(request):
-    """Renders the main dashboard/index template"""
+#Renders the main dashboard/index template
     return render(request, 'accounts/index.html')
 
-# --- FLOW 1: ONBOARDING & AUTHENTICATION ---
+#MAIN PAGE
+def login_page(request):
+#Renders the login.html template
+    return render(request, 'login.html')
+
+# ONBOARDING & AUTHENTICATION
 
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -39,14 +39,14 @@ class RegisterView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 class UserProfileView(APIView):
-    """Fetches user details using the Access Token."""
+    #Fetches user details using the Access Token."""
     permission_classes = [IsAuthenticated]
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
         
 class LogoutView(APIView):
-    """Blacklists the refresh token for security integrity."""
+    #Blacklists the refresh token for security integrity.
     permission_classes = [IsAuthenticated]
     def post(self, request):
         try:
@@ -57,7 +57,7 @@ class LogoutView(APIView):
         except Exception:
             return Response({"error": "Invalid token"}, status=status.HTTP_400_BAD_REQUEST)
 
-# --- FLOW 2: LOGGED-IN ACCOUNT MANAGEMENT (Inside App) ---
+# LOGGED-IN ACCOUNT 
 
 class UpdatePasswordView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -73,10 +73,10 @@ class UpdatePasswordView(APIView):
         user.set_password(new_password) # The secure hashing wrapper
         user.save()
         return Response({"message": "Password Updated Successfully!"}, status=status.HTTP_200_OK)
-# --- FLOW 3: ACCOUNT RECOVERY (Forgot Password - Outside App) ---
+#ACCOUNT RECOVERY
 
 class ForgetPasswordView(APIView):
-    """Step 1: Generates a temporary security token via Email lookup."""
+    #Providing security token via Email.
     permission_classes = [permissions.AllowAny]
     def post(self, request):
         email = request.data.get('email')
@@ -89,7 +89,7 @@ class ForgetPasswordView(APIView):
             return Response({"error": "Email not found"}, status=404)
 
 class ResetPasswordConfirmView(APIView):
-    """Step 2: Uses the uid and token to securely reset the password."""
+    #Step 2: Uses the uid and token to securely reset the password.
     permission_classes = [permissions.AllowAny]
     def post(self, request):
         uidb64 = request.data.get('uid')
